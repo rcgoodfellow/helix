@@ -1,6 +1,8 @@
 use crate::{graphics::Rect, View, ViewId};
 use slotmap::HopSlotMap;
 
+pub const DEFAULT_EXPAND: usize = 40;
+
 // the dimensions are recomputed on window resize/tree change.
 //
 #[derive(Debug)]
@@ -96,10 +98,10 @@ impl Container {
     }
 
     fn get_child_by_view_id(&mut self, node: ViewId) -> Option<&mut ContainerBounds> {
-        if let Some(index) = self.children.iter().position(|child| child == &node) {
-            return self.node_bounds.get_mut(index);
-        };
-        None
+        self.children
+            .iter()
+            .position(|child| child == &node)
+            .and_then(|index| self.node_bounds.get_mut(index))
     }
 
     fn push_child(&mut self, node: ViewId) -> &mut Self {
@@ -150,7 +152,7 @@ impl Container {
         self.node_bounds
             .iter()
             .map(|bounds| match bounds.expand {
-                true => 40,
+                true => DEFAULT_EXPAND,
                 false => bounds.width,
             })
             .sum()
@@ -160,7 +162,7 @@ impl Container {
         self.node_bounds
             .iter()
             .map(|bounds| match bounds.expand {
-                true => 40,
+                true => DEFAULT_EXPAND,
                 false => bounds.height,
             })
             .sum()
@@ -457,7 +459,7 @@ impl Tree {
                             for (i, child) in container.children.iter().enumerate() {
                                 let bounds = container.node_bounds[i];
                                 let height = match bounds.expand {
-                                    true => (40.0 * slot_height) as u16,
+                                    true => (DEFAULT_EXPAND as f32 * slot_height) as u16,
                                     false => (slot_height * bounds.height as f32).floor() as u16,
                                 };
 
@@ -490,7 +492,7 @@ impl Tree {
                             for (i, child) in container.children.iter().enumerate() {
                                 let bounds = container.node_bounds[i];
                                 let width = match bounds.expand {
-                                    true => (40.0 * slot_width) as u16,
+                                    true => (DEFAULT_EXPAND as f32 * slot_width) as u16,
                                     false => (slot_width * bounds.width as f32).floor() as u16,
                                 };
 
@@ -709,7 +711,7 @@ impl Tree {
                             }
                         }
                         Resize::Grow => {
-                            if bounds.width < 20 {
+                            if bounds.width < 100 {
                                 bounds.width += 1;
                             }
                         }
@@ -726,7 +728,7 @@ impl Tree {
                             }
                         }
                         Resize::Grow => {
-                            if bounds.height < 20 {
+                            if bounds.height < 100 {
                                 bounds.height += 1;
                             }
                         }
@@ -737,7 +739,7 @@ impl Tree {
         }
     }
 
-    pub fn buffer_expand_mode(&mut self) {
+    pub fn toggle_focus_window(&mut self) {
         if let Some(bounds) = self.get_active_node_bounds_mut(Layout::Horizontal) {
             bounds.expand = !bounds.expand;
         }
