@@ -5,7 +5,7 @@ use std::{
     str::FromStr,
 };
 
-#[derive(Debug, Clone, Copy, PartialEq, Deserialize, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "lowercase")]
 /// UNSTABLE
 pub enum CursorKind {
@@ -95,31 +95,19 @@ pub struct Rect {
 }
 
 impl Rect {
-    /// Creates a new rect, with width and height limited to keep the area under max u16.
-    /// If clipped, aspect ratio will be preserved.
+    /// Creates a new rect, with width and height
     pub fn new(x: u16, y: u16, width: u16, height: u16) -> Rect {
-        let max_area = u16::max_value();
-        let (clipped_width, clipped_height) =
-            if u32::from(width) * u32::from(height) > u32::from(max_area) {
-                let aspect_ratio = f64::from(width) / f64::from(height);
-                let max_area_f = f64::from(max_area);
-                let height_f = (max_area_f / aspect_ratio).sqrt();
-                let width_f = height_f * aspect_ratio;
-                (width_f as u16, height_f as u16)
-            } else {
-                (width, height)
-            };
         Rect {
             x,
             y,
-            width: clipped_width,
-            height: clipped_height,
+            width,
+            height,
         }
     }
 
     #[inline]
-    pub fn area(self) -> u16 {
-        self.width * self.height
+    pub fn area(self) -> usize {
+        (self.width as usize) * (self.height as usize)
     }
 
     #[inline]
@@ -249,8 +237,8 @@ impl Rect {
         Rect {
             x: x1,
             y: y1,
-            width: x2 - x1,
-            height: y2 - y1,
+            width: x2.saturating_sub(x1),
+            height: y2.saturating_sub(y1),
         }
     }
 
@@ -262,8 +250,7 @@ impl Rect {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Color {
     Reset,
     Black,
@@ -315,7 +302,7 @@ impl From<Color> for crossterm::style::Color {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum UnderlineStyle {
     Reset,
     Line,
@@ -365,7 +352,7 @@ bitflags! {
     ///
     /// let m = Modifier::BOLD | Modifier::ITALIC;
     /// ```
-    #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+    #[derive(PartialEq, Eq, Debug, Clone, Copy)]
     pub struct Modifier: u16 {
         const BOLD              = 0b0000_0000_0001;
         const DIM               = 0b0000_0000_0010;
@@ -461,8 +448,7 @@ impl FromStr for Modifier {
 ///     buffer[(0, 0)].style(),
 /// );
 /// ```
-#[derive(Debug, Clone, Copy, PartialEq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Style {
     pub fg: Option<Color>,
     pub bg: Option<Color>,
@@ -629,33 +615,6 @@ impl Style {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn test_rect_size_truncation() {
-        for width in 256u16..300u16 {
-            for height in 256u16..300u16 {
-                let rect = Rect::new(0, 0, width, height);
-                rect.area(); // Should not panic.
-                assert!(rect.width < width || rect.height < height);
-                // The target dimensions are rounded down so the math will not be too precise
-                // but let's make sure the ratios don't diverge crazily.
-                assert!(
-                    (f64::from(rect.width) / f64::from(rect.height)
-                        - f64::from(width) / f64::from(height))
-                    .abs()
-                        < 1.0
-                )
-            }
-        }
-
-        // One dimension below 255, one above. Area above max u16.
-        let width = 900;
-        let height = 100;
-        let rect = Rect::new(0, 0, width, height);
-        assert_ne!(rect.width, 900);
-        assert_ne!(rect.height, 100);
-        assert!(rect.width < width || rect.height < height);
-    }
 
     #[test]
     fn test_rect_size_preservation() {
