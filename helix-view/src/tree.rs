@@ -65,6 +65,7 @@ pub struct Container {
     layout: Layout,
     children: Vec<ViewId>,
     area: Rect,
+    splitmod: Vec<i16>,
 }
 
 impl Container {
@@ -73,6 +74,7 @@ impl Container {
             layout,
             children: Vec::new(),
             area: Rect::default(),
+            splitmod: Vec::new(),
         }
     }
 }
@@ -132,6 +134,7 @@ impl Tree {
         };
 
         container.children.insert(pos, node);
+        container.splitmod.push(0);
         // focus the new node
         self.focus = node;
 
@@ -169,6 +172,7 @@ impl Tree {
                 pos + 1
             };
             container.children.insert(pos, node);
+            container.splitmod.push(0);
             self.nodes[node].parent = parent;
         } else {
             let mut split = Node::container(layout);
@@ -184,6 +188,7 @@ impl Tree {
             };
             container.children.push(focus);
             container.children.push(node);
+            container.splitmod.push(0);
             self.nodes[focus].parent = split;
             self.nodes[node].parent = split;
 
@@ -365,6 +370,21 @@ impl Tree {
                             let mut child_y = area.y;
 
                             for (i, child) in container.children.iter().enumerate() {
+                                let mut modifier =
+                                    container.splitmod.get(i).copied().unwrap_or(0i16);
+
+                                if modifier + (height as i16) < 0 {
+                                    container.splitmod[i] = -(height as i16);
+                                    modifier = -(height as i16);
+                                }
+
+                                if modifier > (height as i16) {
+                                    container.splitmod[i] = height as i16;
+                                    modifier = container.splitmod[i];
+                                }
+
+                                let height = (height as i16 + modifier).try_into().unwrap_or(0);
+
                                 let mut area = Rect::new(
                                     container.area.x,
                                     child_y,
@@ -376,7 +396,8 @@ impl Tree {
                                 // last child takes the remaining width because we can get uneven
                                 // space from rounding
                                 if i == len - 1 {
-                                    area.height = container.area.y + container.area.height - area.y;
+                                    area.height = (container.area.y + container.area.height)
+                                        .saturating_sub(area.y);
                                 }
 
                                 self.stack.push((*child, area));
@@ -393,6 +414,25 @@ impl Tree {
                             let mut child_x = area.x;
 
                             for (i, child) in container.children.iter().enumerate() {
+                                let mut modifier =
+                                    container.splitmod.get(i).copied().unwrap_or(0i16);
+
+                                if modifier + (width as i16) < 0 {
+                                    container.splitmod[i] = -(width as i16);
+                                    modifier = -(width as i16);
+                                }
+
+                                if modifier > (width as i16) {
+                                    container.splitmod[i] = width as i16;
+                                    modifier = container.splitmod[i];
+                                }
+
+                                log::warn!(
+                                    "modifier: {modifier} width: {width} cw: {}",
+                                    container.area.width
+                                );
+
+                                let width = (width as i16 + modifier).try_into().unwrap_or(0);
                                 let mut area = Rect::new(
                                     child_x,
                                     container.area.y,
@@ -404,7 +444,8 @@ impl Tree {
                                 // last child takes the remaining width because we can get uneven
                                 // space from rounding
                                 if i == len - 1 {
-                                    area.width = container.area.x + container.area.width - area.x;
+                                    area.width = (container.area.x + container.area.width)
+                                        .saturating_sub(area.x);
                                 }
 
                                 self.stack.push((*child, area));
@@ -643,6 +684,239 @@ impl Tree {
 
     pub fn area(&self) -> Rect {
         self.area
+    }
+
+    pub fn grow_window_left(&mut self) {
+        let parent = self.nodes[self.focus].parent;
+        let node = &mut self.nodes[parent];
+        let container = match &mut node.content {
+            Content::Container(c) => c,
+            _ => {
+                log::warn!("container not found");
+                return;
+            }
+        };
+        let pos = match container
+            .children
+            .iter()
+            .position(|node| *node == self.focus)
+        {
+            Some(0) => return,
+            Some(p) => p - 1,
+            None => {
+                log::warn!("posiiton not found");
+                return;
+            }
+        };
+        container.splitmod[pos] -= 1;
+
+        self.recalculate();
+    }
+
+    pub fn grow_window_right(&mut self) {
+        let parent = self.nodes[self.focus].parent;
+        let node = &mut self.nodes[parent];
+        let container = match &mut node.content {
+            Content::Container(c) => c,
+            _ => {
+                log::warn!("container not found");
+                return;
+            }
+        };
+        let pos = match container
+            .children
+            .iter()
+            .position(|node| *node == self.focus)
+        {
+            Some(p) => {
+                if p >= container.splitmod.len() {
+                    return;
+                }
+                p
+            }
+            None => {
+                log::warn!("posiiton not found");
+                return;
+            }
+        };
+        container.splitmod[pos] += 1;
+
+        self.recalculate();
+    }
+
+    pub fn shrink_window_left(&mut self) {
+        log::warn!("grow left");
+        let parent = self.nodes[self.focus].parent;
+        let node = &mut self.nodes[parent];
+        let container = match &mut node.content {
+            Content::Container(c) => c,
+            _ => {
+                log::warn!("container not found");
+                return;
+            }
+        };
+        let pos = match container
+            .children
+            .iter()
+            .position(|node| *node == self.focus)
+        {
+            Some(0) => return,
+            Some(p) => p - 1,
+            None => {
+                log::warn!("posiiton not found");
+                return;
+            }
+        };
+        container.splitmod[pos] += 1;
+        log::warn!("bump left");
+
+        self.recalculate();
+    }
+
+    pub fn shrink_window_right(&mut self) {
+        let parent = self.nodes[self.focus].parent;
+        let node = &mut self.nodes[parent];
+        let container = match &mut node.content {
+            Content::Container(c) => c,
+            _ => {
+                log::warn!("container not found");
+                return;
+            }
+        };
+        let pos = match container
+            .children
+            .iter()
+            .position(|node| *node == self.focus)
+        {
+            Some(p) => {
+                if p >= container.splitmod.len() {
+                    return;
+                }
+                p
+            }
+            None => {
+                log::warn!("posiiton not found");
+                return;
+            }
+        };
+        container.splitmod[pos] -= 1;
+
+        self.recalculate();
+    }
+
+    pub fn grow_window_up(&mut self) {
+        let parent = self.nodes[self.focus].parent;
+        let node = &mut self.nodes[parent];
+        let container = match &mut node.content {
+            Content::Container(c) => c,
+            _ => {
+                log::warn!("container not found");
+                return;
+            }
+        };
+        let pos = match container
+            .children
+            .iter()
+            .position(|node| *node == self.focus)
+        {
+            Some(0) => return,
+            Some(p) => p - 1,
+            None => {
+                log::warn!("posiiton not found");
+                return;
+            }
+        };
+        container.splitmod[pos] -= 1;
+
+        self.recalculate();
+    }
+
+    pub fn grow_window_down(&mut self) {
+        let parent = self.nodes[self.focus].parent;
+        let node = &mut self.nodes[parent];
+        let container = match &mut node.content {
+            Content::Container(c) => c,
+            _ => {
+                log::warn!("container not found");
+                return;
+            }
+        };
+        let pos = match container
+            .children
+            .iter()
+            .position(|node| *node == self.focus)
+        {
+            Some(p) => {
+                if p >= container.splitmod.len() {
+                    return;
+                }
+                p
+            }
+            None => {
+                log::warn!("posiiton not found");
+                return;
+            }
+        };
+        container.splitmod[pos] += 1;
+
+        self.recalculate();
+    }
+
+    pub fn shrink_window_up(&mut self) {
+        let parent = self.nodes[self.focus].parent;
+        let node = &mut self.nodes[parent];
+        let container = match &mut node.content {
+            Content::Container(c) => c,
+            _ => {
+                log::warn!("container not found");
+                return;
+            }
+        };
+        let pos = match container
+            .children
+            .iter()
+            .position(|node| *node == self.focus)
+        {
+            Some(0) => return,
+            Some(p) => p - 1,
+            None => {
+                log::warn!("posiiton not found");
+                return;
+            }
+        };
+        container.splitmod[pos] += 1;
+
+        self.recalculate();
+    }
+    pub fn shrink_window_down(&mut self) {
+        let parent = self.nodes[self.focus].parent;
+        let node = &mut self.nodes[parent];
+        let container = match &mut node.content {
+            Content::Container(c) => c,
+            _ => {
+                log::warn!("container not found");
+                return;
+            }
+        };
+        let pos = match container
+            .children
+            .iter()
+            .position(|node| *node == self.focus)
+        {
+            Some(p) => {
+                if p >= container.splitmod.len() {
+                    return;
+                }
+                p
+            }
+            None => {
+                log::warn!("posiiton not found");
+                return;
+            }
+        };
+        container.splitmod[pos] -= 1;
+
+        self.recalculate();
     }
 }
 

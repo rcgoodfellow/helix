@@ -490,6 +490,14 @@ impl MappableCommand {
         record_macro, "Record macro",
         replay_macro, "Replay macro",
         command_palette, "Open command palette",
+        grow_left, "Grow current window to the left",
+        grow_right, "Grow current window to the right",
+        shrink_left, "Shrink the current window to the left",
+        shrink_right, "Shrink the current window to the right",
+        grow_up, "Grow current window upwards",
+        grow_down, "Grow current window downwards",
+        shrink_up, "Shrink the current window from above",
+        shrink_down, "Shrink the current window from below",
     );
 }
 
@@ -5742,4 +5750,36 @@ fn replay_macro(cx: &mut Context) {
         // replaying recursively.
         cx.editor.macro_replaying.pop();
     }));
+}
+
+fn grow_left(cx: &mut Context) {
+    cx.editor.tree.grow_window_left();
+}
+
+fn grow_right(cx: &mut Context) {
+    cx.editor.tree.grow_window_right();
+}
+
+fn shrink_left(cx: &mut Context) {
+    cx.editor.tree.shrink_window_left();
+}
+
+fn shrink_right(cx: &mut Context) {
+    cx.editor.tree.shrink_window_right();
+}
+
+fn grow_up(cx: &mut Context) {
+    cx.editor.tree.grow_window_up();
+}
+
+fn grow_down(cx: &mut Context) {
+    cx.editor.tree.grow_window_down();
+}
+
+fn shrink_up(cx: &mut Context) {
+    cx.editor.tree.shrink_window_up();
+}
+
+fn shrink_down(cx: &mut Context) {
+    cx.editor.tree.shrink_window_down();
 }

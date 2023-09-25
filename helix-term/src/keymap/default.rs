@@ -181,6 +181,25 @@ pub fn default() -> HashMap<Mode, KeyTrie> {
         "C-u" => half_page_up,
         "C-d" => half_page_down,
 
+        "A-w" => { "Resize window"
+            "j" => { "lower split" sticky=true
+                "j" => grow_down,
+                "k" => shrink_down,
+            },
+            "k" => { "upper split" sticky=true
+                "j" => shrink_up,
+                "k" => grow_up,
+            },
+            "h" => { "left split" sticky=true
+                "h" => grow_left,
+                "l" => shrink_left,
+            },
+            "l" => { "right split" sticky=true
+                "h" => shrink_right,
+                "l" => grow_right,
+            },
+        },
+
         "C-w" => { "Window"
             "C-w" | "w" => rotate_view,
             "C-s" | "s" => hsplit,
