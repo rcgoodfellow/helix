@@ -33,6 +33,7 @@ impl GutterType {
             GutterType::Spacer => padding(editor, doc, view, theme, is_focused),
             GutterType::Diff => diff(editor, doc, view, theme, is_focused),
             GutterType::CodeActionHint => code_action_hint(editor, doc, view, theme, is_focused),
+            GutterType::Marks => marks(editor, doc, view, theme, is_focused),
         }
     }
 
@@ -43,6 +44,7 @@ impl GutterType {
             GutterType::Spacer => 1,
             GutterType::Diff => 1,
             GutterType::CodeActionHint => 1,
+            GutterType::Marks => doc.decorations().marks_width(),
         }
     }
 }
@@ -139,6 +141,31 @@ pub fn diff<'doc>(
     } else {
         Box::new(move |_, _, _, _| None)
     }
+}
+
+/// Shows the gutter markers supplied through [`crate::annotations::decorations`].
+///
+/// This draws all markers of a line in the style of the first one. The editor
+/// renders this gutter itself so each marker gets its own style.
+pub fn marks<'doc>(
+    _editor: &'doc Editor,
+    doc: &'doc Document,
+    _view: &View,
+    theme: &Theme,
+    _is_focused: bool,
+) -> GutterFn<'doc> {
+    let decorations = doc.decorations();
+    let theme = theme.clone();
+    Box::new(
+        move |line: usize, _selected: bool, _first_visual_line: bool, out: &mut String| {
+            let mut style = None;
+            for marker in decorations.gutter_marks(line) {
+                out.push_str(&marker.text);
+                style.get_or_insert_with(|| theme.get(&marker.scope));
+            }
+            style
+        },
+    )
 }
 
 pub fn line_numbers<'doc>(

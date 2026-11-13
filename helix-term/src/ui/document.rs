@@ -25,6 +25,14 @@ pub struct LinePos {
     pub doc_line: usize,
     /// Vertical offset from the top of the inner view area
     pub visual_line: u16,
+    /// Indicates whether the given visual line is the last visual line of the
+    /// given document line. This is only known once the next line starts, so it
+    /// is only meaningful in [`Decoration::render_virt_lines`] and always `false`
+    /// in [`Decoration::decorate_line`].
+    ///
+    /// [`Decoration::render_virt_lines`]: crate::ui::text_decorations::Decoration::render_virt_lines
+    /// [`Decoration::decorate_line`]: crate::ui::text_decorations::Decoration::decorate_line
+    pub last_visual_line: bool,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -85,7 +93,11 @@ pub fn render_text(
         first_visual_line: false,
         doc_line: usize::MAX,
         visual_line: u16::MAX,
+        last_visual_line: false,
     };
+    // whether the last rendered line is the last visual line of its document line,
+    // stays true if the formatter runs out of text
+    let mut last_line_ended = true;
     let mut last_line_end = 0;
     let mut is_in_indent_area = true;
     let mut last_line_indent_level = 0;
@@ -108,6 +120,7 @@ pub fn render_text(
 
         // if the end of the viewport is reached stop rendering
         if grapheme.visual_pos.row as u16 >= renderer.viewport.height + renderer.offset.row as u16 {
+            last_line_ended = grapheme.line_idx != last_line_pos.doc_line;
             break;
         }
 
@@ -121,12 +134,17 @@ pub fn render_text(
                 // draw indent guides for the last line
                 renderer.draw_indent_guides(last_line_indent_level, last_line_pos.visual_line);
                 is_in_indent_area = true;
-                decorations.render_virtual_lines(renderer, last_line_pos, last_line_end)
+                let pos = LinePos {
+                    last_visual_line: grapheme.line_idx != last_line_pos.doc_line,
+                    ..last_line_pos
+                };
+                decorations.render_virtual_lines(renderer, pos, last_line_end)
             }
             last_line_pos = LinePos {
                 first_visual_line: grapheme.line_idx != last_line_pos.doc_line,
                 doc_line: grapheme.line_idx,
                 visual_line: grapheme.visual_pos.row as u16,
+                last_visual_line: false,
             };
             decorations.decorate_line(renderer, last_line_pos);
         }
@@ -169,7 +187,11 @@ pub fn render_text(
     }
 
     renderer.draw_indent_guides(last_line_indent_level, last_line_pos.visual_line);
-    decorations.render_virtual_lines(renderer, last_line_pos, last_line_end)
+    let pos = LinePos {
+        last_visual_line: last_line_ended,
+        ..last_line_pos
+    };
+    decorations.render_virtual_lines(renderer, pos, last_line_end)
 }
 
 #[derive(Debug)]

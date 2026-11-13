@@ -79,6 +79,8 @@ impl From<DocumentId> for PathOrId<'_> {
 }
 
 type FileCallback<T> = Box<dyn for<'a> Fn(&'a Editor, &'a T) -> Option<FileLocation<'a>>>;
+/// Given an item, returns styled text to show in the preview panel.
+type TextPreviewCallback<T> = Box<dyn Fn(&Editor, &T) -> Option<Arc<Vec<Spans<'static>>>>>;
 
 /// File path and range of lines (used to align and highlight lines)
 pub type FileLocation<'a> = (PathOrId<'a>, Option<(usize, usize)>);
@@ -266,6 +268,8 @@ pub struct Picker<T: 'static + Send + Sync, D: 'static> {
     read_buffer: Vec<u8>,
     /// Given an item in the picker, return the file path and line number to display.
     file_fn: Option<FileCallback<T>>,
+    /// Given an item in the picker, return styled text to show instead of a file.
+    text_preview_fn: Option<TextPreviewCallback<T>>,
     /// An event handler for syntax highlighting the currently previewed file.
     preview_highlight_handler: Sender<Arc<Path>>,
     dynamic_query_handler: Option<Sender<DynamicQueryChange>>,
@@ -392,6 +396,7 @@ impl<T: 'static + Send + Sync, D: 'static + Send + Sync> Picker<T, D> {
             preview_cache: HashMap::new(),
             read_buffer: Vec::with_capacity(1024),
             file_fn: None,
+            text_preview_fn: None,
             preview_highlight_handler: PreviewHighlightHandler::<T, D>::default().spawn(),
             dynamic_query_handler: None,
         }
@@ -421,6 +426,31 @@ impl<T: 'static + Send + Sync, D: 'static + Send + Sync> Picker<T, D> {
         // assumption: if we have a preview we are matching paths... If this is ever
         // not true this could be a separate builder function
         self.matcher.update_config(Config::DEFAULT.match_paths());
+        self
+    }
+
+    /// Shows styled text in the preview panel. Called on every render, so it
+    /// should be cheap (e.g. cache its result). When it returns `None` the
+    /// preview from [`Picker::with_preview`] (if any) is shown instead.
+    pub fn with_text_preview(
+        mut self,
+        preview_fn: impl Fn(&Editor, &T) -> Option<Arc<Vec<Spans<'static>>>> + 'static,
+    ) -> Self {
+        self.text_preview_fn = Some(Box::new(preview_fn));
+        self
+    }
+
+    /// Truncates long cells at the end instead of the start (the default, which
+    /// suits paths).
+    pub fn truncate_end(mut self) -> Self {
+        self.truncate_start = false;
+        self
+    }
+
+    /// Starts the picker with `query` typed into its prompt.
+    pub fn with_initial_query(mut self, query: String, editor: &Editor) -> Self {
+        self.prompt.set_line(query, editor);
+        self.handle_prompt_change(false);
         self
     }
 
@@ -896,6 +926,18 @@ impl<T: 'static + Send + Sync, D: 'static + Send + Sync> Picker<T, D> {
         let inner = inner.inner(margin);
         BLOCK.render(area, surface);
 
+        let text_preview = self
+            .text_preview_fn
+            .as_ref()
+            .zip(self.selection())
+            .and_then(|(preview_fn, item)| preview_fn(cx.editor, item));
+        if let Some(lines) = text_preview {
+            for (i, line) in lines.iter().take(inner.height as usize).enumerate() {
+                surface.set_spans(inner.x, inner.y + i as u16, line, inner.width);
+            }
+            return;
+        }
+
         if let Some((preview, range)) = self.get_preview(cx.editor) {
             let doc = match preview.document() {
                 Some(doc)
@@ -1032,8 +1074,9 @@ impl<I: 'static + Send + Sync, D: 'static + Send + Sync> Component for Picker<I,
         // |         | |         |
         // +---------+ +---------+
 
-        let render_preview =
-            self.show_preview && self.file_fn.is_some() && area.width > MIN_AREA_WIDTH_FOR_PREVIEW;
+        let render_preview = self.show_preview
+            && (self.file_fn.is_some() || self.text_preview_fn.is_some())
+            && area.width > MIN_AREA_WIDTH_FOR_PREVIEW;
 
         let picker_width = if render_preview {
             area.width / 2
@@ -1175,8 +1218,9 @@ impl<I: 'static + Send + Sync, D: 'static + Send + Sync> Component for Picker<I,
         let inner = block.inner(area);
 
         // prompt area
-        let render_preview =
-            self.show_preview && self.file_fn.is_some() && area.width > MIN_AREA_WIDTH_FOR_PREVIEW;
+        let render_preview = self.show_preview
+            && (self.file_fn.is_some() || self.text_preview_fn.is_some())
+            && area.width > MIN_AREA_WIDTH_FOR_PREVIEW;
 
         let picker_width = if render_preview {
             area.width / 2

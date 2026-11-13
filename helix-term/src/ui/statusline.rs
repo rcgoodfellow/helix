@@ -158,6 +158,7 @@ where
         helix_view::editor::StatusLineElement::Register => render_register,
         helix_view::editor::StatusLineElement::CurrentWorkingDirectory => render_cwd,
         helix_view::editor::StatusLineElement::CodeActionHint => render_code_action_hint,
+        helix_view::editor::StatusLineElement::DecorationStatus => render_decoration_status,
     }
 }
 
@@ -473,6 +474,18 @@ where
     };
 
     write(context, title.into());
+}
+
+fn render_decoration_status<'a, F>(context: &mut RenderContext<'a>, write: F)
+where
+    F: Fn(&mut RenderContext<'a>, Span<'a>) + Copy,
+{
+    let doc = context.doc;
+    for segment in doc.decorations().status() {
+        let style = context.editor.theme.get(&segment.scope);
+        write(context, " ".into());
+        write(context, Span::styled(segment.text.clone(), style));
+    }
 }
 
 fn render_file_modification_indicator<'a, F>(context: &mut RenderContext<'a>, write: F)

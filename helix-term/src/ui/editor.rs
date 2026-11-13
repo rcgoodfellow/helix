@@ -8,7 +8,10 @@ use crate::{
     ui::{
         document::{render_document, LinePos, TextRenderer},
         statusline,
-        text_decorations::{self, Decoration, DecorationManager, InlineDiagnostics},
+        text_decorations::{
+            self, Decoration, DecorationManager, DocumentDecorationsRenderer, GutterArea,
+            InlineDiagnostics,
+        },
         Completion, ProgressSpinners,
     },
 };
@@ -25,7 +28,7 @@ use helix_core::{
 use helix_view::{
     annotations::diagnostics::DiagnosticFilter,
     document::{Mode, SCRATCH_BUFFER_NAME},
-    editor::{CompleteAction, CursorShapeConfig},
+    editor::{CompleteAction, CursorShapeConfig, GutterType},
     graphics::{Color, CursorKind, Modifier, Rect, Style},
     input::{KeyEvent, MouseButton, MouseEvent, MouseEventKind},
     keyboard::{KeyCode, KeyModifiers},
@@ -205,6 +208,16 @@ impl EditorView {
             inline_diagnostic_config,
             config.end_of_line_diagnostics,
         ));
+        // Added after inline diagnostics, mirroring the order of the line annotations
+        // in `View::text_annotations`.
+        if !doc.decorations().is_empty() {
+            decorations.add_decoration(DocumentDecorationsRenderer::new(
+                doc.decorations(),
+                theme,
+                Self::decorations_gutter_area(doc, view, gutter_overflow),
+                doc.tab_width(),
+            ));
+        }
         render_document(
             surface,
             inner,
@@ -712,6 +725,29 @@ impl EditorView {
         }
     }
 
+    /// The gutter area that virtual lines from document decorations draw into.
+    fn decorations_gutter_area(doc: &Document, view: &View, overflow: bool) -> Option<GutterArea> {
+        if overflow {
+            return None;
+        }
+        let mut offset = 0;
+        let mut marks_x = None;
+        let mut diff_x = None;
+        for gutter_type in view.gutters() {
+            match gutter_type {
+                GutterType::Marks => marks_x = marks_x.or(Some(offset)),
+                GutterType::Diff => diff_x = diff_x.or(Some(offset)),
+                _ => (),
+            }
+            offset += gutter_type.width(view, doc) as u16;
+        }
+        Some(GutterArea {
+            x: view.area.x,
+            width: offset,
+            marker_x: view.area.x + marks_x.or(diff_x).unwrap_or(0),
+        })
+    }
+
     pub fn render_gutter<'d>(
         editor: &'d Editor,
         doc: &'d Document,
@@ -736,8 +772,46 @@ impl EditorView {
         let gutter_selected_style_virtual = theme.get("ui.gutter.selected.virtual");
 
         for gutter_type in view.gutters() {
-            let mut gutter = gutter_type.style(editor, doc, view, theme, is_focused);
             let width = gutter_type.width(view, doc);
+            if *gutter_type == GutterType::Marks {
+                // drawn here rather than through `GutterType::style` so that each
+                // marker of a line can have its own style
+                let decorations = doc.decorations();
+                let theme = &editor.theme;
+                let cursors = cursors.clone();
+                let x = viewport.x + offset;
+                decoration_manager.add_decoration(
+                    move |renderer: &mut TextRenderer, pos: LinePos| {
+                        let selected = cursors.contains(&pos.doc_line);
+                        let gutter_style = match (selected, pos.first_visual_line) {
+                            (false, true) => gutter_style,
+                            (true, true) => gutter_selected_style,
+                            (false, false) => gutter_style_virtual,
+                            (true, false) => gutter_selected_style_virtual,
+                        };
+                        let y = pos.visual_line;
+                        renderer.set_style(Rect::new(x, y, width as u16, 1), gutter_style);
+                        let mut col = 0;
+                        for marker in decorations.gutter_marks(pos.doc_line) {
+                            if col >= width {
+                                break;
+                            }
+                            let style = gutter_style.patch(theme.get(&marker.scope));
+                            renderer.set_stringn(
+                                x + col as u16,
+                                y,
+                                &marker.text,
+                                width - col,
+                                style,
+                            );
+                            col += marker.text.chars().count();
+                        }
+                    },
+                );
+                offset += width as u16;
+                continue;
+            }
+            let mut gutter = gutter_type.style(editor, doc, view, theme, is_focused);
             // avoid lots of small allocations by reusing a text buffer for each line
             let mut text = String::with_capacity(width);
             let cursors = cursors.clone();

@@ -64,5 +64,6 @@ pub fn setup(config: Arc<ArcSwap<Config>>) -> Handlers {
     document_links::register_hooks(&handlers);
     prompt::register_hooks(&handlers);
     workspace_trust::register_hooks(&handlers);
+    crate::review::register_hooks();
     handlers
 }

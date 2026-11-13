@@ -44,6 +44,7 @@ use helix_core::{
 };
 
 use crate::{
+    annotations::decorations::DocumentDecorations,
     editor::Config,
     events::{DocumentDidChange, SelectionDidChange},
     expansion,
@@ -151,6 +152,8 @@ pub struct Document {
     pub(crate) inlay_hints: HashMap<ViewId, DocumentInlayHints>,
     /// Jump label overlays for each view.
     pub(crate) jump_labels: HashMap<ViewId, Vec<Overlay>>,
+    /// Externally supplied decorations (virtual lines, gutter marks, line styles).
+    decorations: DocumentDecorations,
     /// LSP document highlights for each view, stored as char ranges.
     pub(crate) document_highlights: HashMap<ViewId, DocumentHighlights>,
     /// LSP code action hints for each view.
@@ -765,6 +768,7 @@ impl Document {
             focused_at: std::time::Instant::now(),
             readonly: false,
             jump_labels: HashMap::new(),
+            decorations: DocumentDecorations::default(),
             document_highlights: HashMap::new(),
             code_action_hints: HashSet::new(),
             color_swatches: None,
@@ -2466,6 +2470,15 @@ impl Document {
 
     pub fn remove_jump_labels(&mut self, view_id: ViewId) {
         self.jump_labels.remove(&view_id);
+    }
+
+    /// Decorations supplied by modes/extensions, see [`DocumentDecorations`].
+    pub fn decorations(&self) -> &DocumentDecorations {
+        &self.decorations
+    }
+
+    pub fn decorations_mut(&mut self) -> &mut DocumentDecorations {
+        &mut self.decorations
     }
 
     pub fn set_document_highlights(

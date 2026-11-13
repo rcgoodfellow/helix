@@ -413,6 +413,8 @@ impl MappableCommand {
         syntax_symbol_picker, "Open symbol picker from syntax information",
         lsp_or_syntax_symbol_picker, "Open symbol picker from LSP or syntax information",
         changed_file_picker, "Open changed file picker",
+        review_picker, "Open review picker (starts a review if needed)",
+        review_search, "Search the added and removed lines of the review (starts a review if needed)",
         select_references_to_symbol_under_cursor, "Select symbol references",
         workspace_symbol_picker, "Open workspace symbol picker",
         syntax_workspace_symbol_picker, "Open workspace symbol picker from syntax information",
@@ -3470,6 +3472,18 @@ fn jumplist_picker(cx: &mut Context) {
         Some((meta.id.into(), Some((line, line))))
     });
     cx.push_layer(Box::new(overlaid(picker)));
+}
+
+fn review_search(cx: &mut Context) {
+    if let Err(err) = crate::review::open_search(cx.editor, cx.jobs, String::new()) {
+        cx.editor.set_error(err.to_string());
+    }
+}
+
+fn review_picker(cx: &mut Context) {
+    if let Err(err) = crate::review::open_picker(cx.editor, cx.jobs) {
+        cx.editor.set_error(err.to_string());
+    }
 }
 
 fn changed_file_picker(cx: &mut Context) {

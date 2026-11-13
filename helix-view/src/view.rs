@@ -1,6 +1,6 @@
 use crate::{
     align_view,
-    annotations::diagnostics::InlineDiagnostics,
+    annotations::{decorations::VirtualLinesAnnotation, diagnostics::InlineDiagnostics},
     document::{DocumentColorSwatches, DocumentInlayHints},
     editor::{GutterConfig, GutterType},
     graphics::Rect,
@@ -519,6 +519,15 @@ impl View {
                 width,
                 doc.view_offset(self.id).horizontal_offset,
                 config,
+            ));
+        }
+
+        // Added last so that virtual lines are shown below any inline diagnostics
+        // of the line they are anchored to.
+        if doc.decorations().has_virtual_lines() {
+            text_annotations.add_line_annotation(VirtualLinesAnnotation::new(
+                doc.text().slice(..),
+                doc.decorations(),
             ));
         }
 

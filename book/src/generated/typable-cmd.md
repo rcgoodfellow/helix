@@ -97,6 +97,15 @@
 | `:read`, `:r` | Load a file into buffer |
 | `:echo` | Prints the given arguments to the statusline. |
 | `:noop` | Does nothing. |
+| `:review` | Review the changes since the merge base of a revision (default: the main branch) and HEAD. Removed lines are shown inline, added lines are marked in the `marks` gutter. |
+| `:review-files` | Pick one of the files changed in the current review, starting a review against the default base if there is none. |
+| `:review-next` | Go to the next change in the current review. |
+| `:review-prev` | Go to the previous change in the current review. |
+| `:review-line` | Open the GitHub diff at the line under the cursor: the pull request given as argument (remembered for the branch) or found with the `gh` CLI if installed, otherwise GitHub's compare view of the branch. Over SSH the link is copied to the clipboard instead. |
+| `:review-search` | Search the added and removed lines of all files in the review (starting a review against the default base if there is none). Optionally takes an initial query. |
+| `:review-mark` | Toggle whether the changes under the selections are reviewed. |
+| `:review-mark-file` | Toggle whether all changes in the current file are reviewed. |
+| `:review-close` | Leave review mode. |
 | `:workspace-trust` | Allow language servers and local config for the current workspace. |
 | `:workspace-untrust` | Revoke the current workspace's trust grant or exclusion. |
 | `:workspace-exclude` | Mark the current workspace as never-prompt. Never prompts for trust again. |

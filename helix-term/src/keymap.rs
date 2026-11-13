@@ -14,10 +14,58 @@ use macros::key;
 use serde::Deserialize;
 use std::{
     borrow::Cow,
-    collections::{BTreeSet, HashMap},
+    collections::{BTreeMap, BTreeSet, HashMap},
     ops::{Deref, DerefMut},
-    sync::Arc,
+    sync::{Arc, Mutex, MutexGuard},
 };
+
+/// Keymap layers temporarily installed on top of the configured keymap, by name.
+type KeymapLayers = BTreeMap<String, HashMap<Mode, KeyTrie>>;
+
+static KEYMAP_LAYERS: Mutex<KeymapLayers> = Mutex::new(BTreeMap::new());
+
+fn keymap_layers() -> MutexGuard<'static, KeymapLayers> {
+    KEYMAP_LAYERS.lock().unwrap_or_else(|err| err.into_inner())
+}
+
+/// Installs (or replaces) the keymap layer `name`, for modes and extensions
+/// that need keybindings only while they are active.
+///
+/// Bindings in a layer shadow the configured keymap. Shadowing is decided by
+/// the first key of a sequence: if a layer binds that key (to a command or a
+/// sub-menu), the whole sequence is looked up in that layer. Layers set later
+/// (by name order) take precedence over earlier ones.
+///
+/// `keys` uses the same format as the `[keys]` section of the config file:
+///
+/// ```toml
+/// [normal]
+/// n = ":review-next"
+/// ```
+pub fn set_keymap_layer(name: &str, keys: &str) -> anyhow::Result<()> {
+    let keys: HashMap<Mode, KeyTrie> = toml::from_str(keys)?;
+    keymap_layers().insert(name.to_string(), keys);
+    Ok(())
+}
+
+pub fn remove_keymap_layer(name: &str) {
+    keymap_layers().remove(name);
+}
+
+/// The trie that a key sequence starting with `first` is looked up in.
+fn layered_keymap<'a>(
+    base: &'a KeyTrie,
+    layers: &'a KeymapLayers,
+    mode: Mode,
+    first: &KeyEvent,
+) -> &'a KeyTrie {
+    layers
+        .values()
+        .rev()
+        .filter_map(|layer| layer.get(&mode))
+        .find(|trie| trie.search(&[*first]).is_some())
+        .unwrap_or(base)
+}
 
 #[derive(Debug, Clone, Default, Deserialize)]
 pub struct KeyTrieNode {
@@ -294,7 +342,9 @@ impl Keymaps {
 
     pub fn contains_key(&self, mode: Mode, key: KeyEvent) -> bool {
         let keymaps = &*self.map();
-        let keymap = &keymaps[&mode];
+        let layers = keymap_layers();
+        let first = self.pending().first().unwrap_or(&key);
+        let keymap = layered_keymap(&keymaps[&mode], &layers, mode, first);
         keymap
             .search(self.pending())
             .and_then(KeyTrie::node)
@@ -307,7 +357,7 @@ impl Keymaps {
     pub fn get(&mut self, mode: Mode, key: KeyEvent) -> KeymapResult {
         // TODO: remove the sticky part and look up manually
         let keymaps = &*self.map();
-        let keymap = &keymaps[&mode];
+        let layers = keymap_layers();
 
         if key!(Esc) == key {
             if !self.state.is_empty() {
@@ -320,7 +370,7 @@ impl Keymaps {
         let first = self.state.first().unwrap_or(&key);
         let trie_node = match self.sticky {
             Some(ref trie) => Cow::Owned(KeyTrie::Node(trie.clone())),
-            None => Cow::Borrowed(keymap),
+            None => Cow::Borrowed(layered_keymap(&keymaps[&mode], &layers, mode, first)),
         };
 
         let trie = match trie_node.search(&[*first]) {

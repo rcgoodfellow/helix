@@ -40,7 +40,7 @@
 | `cursorline` | Highlight all lines with a cursor | `false` |
 | `cursorcolumn` | Highlight all columns with a cursor | `false` |
 | `continue-comments` | if helix should automatically add a line comment token if you create a new line inside a comment. | `true` |
-| `gutters` | Gutters to display: Available are `diagnostics` and `diff` and `line-numbers` and `spacer` and `code-action-hint`, note that `diagnostics` also includes other features like breakpoints, 1-width padding will be inserted if gutters is non-empty | `["diagnostics", "spacer", "line-numbers", "spacer", "diff"]` |
+| `gutters` | Gutters to display: Available are `diagnostics` and `diff` and `line-numbers` and `spacer` and `code-action-hint` and `marks` (markers set by modes such as `:review`), note that `diagnostics` also includes other features like breakpoints, 1-width padding will be inserted if gutters is non-empty | `["diagnostics", "spacer", "line-numbers", "spacer", "diff"]` |
 | `auto-completion` | Enable automatic pop up of auto-completion | `true` |
 | `path-completion` | Enable filepath completion. Show files and directories if an existing path at the cursor was recognized, either absolute or relative to the current opened document or current working directory (if the buffer is not yet saved). Defaults to true. | `true` |
 | `auto-format` | Enable automatic formatting on save[^3] | `true` |
@@ -122,7 +122,7 @@ The `[editor.statusline]` key takes the following sub-keys:
 
 | Key           | Description | Default |
 | ---           | ---         | ---     |
-| `left`        | A list of elements aligned to the left of the statusline | `["mode", "spinner", "file-name", "read-only-indicator", "file-modification-indicator"]` |
+| `left`        | A list of elements aligned to the left of the statusline | `["mode", "spinner", "file-name", "read-only-indicator", "file-modification-indicator", "decoration-status"]` |
 | `center`      | A list of elements aligned to the middle of the statusline | `[]` |
 | `right`       | A list of elements aligned to the right of the statusline | `["diagnostics", "selections", "register", "position", "file-encoding"]` |
 | `separator`   | The character used to separate elements in the statusline | `"│"` |
@@ -160,6 +160,7 @@ The following statusline elements can be configured:
 | `version-control` | The current branch name or detached commit hash of the opened workspace |
 | `register` | The current selected register |
 | `code-action-hint` | Indicator for when code actions are available |
+| `decoration-status` | Status supplied by modes such as `:review` (the added/removed line counts of the file) |
 
 ### `[editor.lsp]` Section
 

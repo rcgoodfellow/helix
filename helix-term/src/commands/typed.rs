@@ -4078,6 +4078,105 @@ pub const TYPABLE_COMMAND_LIST: &[TypableCommand] = &[
         },
     },
     TypableCommand {
+        name: "review",
+        aliases: &[],
+        doc: "Review the changes since the merge base of a revision (default: the main branch) and HEAD. Removed lines are shown inline, added lines are marked in the `marks` gutter.",
+        fun: crate::review::review,
+        completer: CommandCompleter::none(),
+        signature: Signature {
+            positionals: (0, Some(1)),
+            ..Signature::DEFAULT
+        },
+    },
+    TypableCommand {
+        name: "review-files",
+        aliases: &[],
+        doc: "Pick one of the files changed in the current review, starting a review against the default base if there is none.",
+        fun: crate::review::review_files,
+        completer: CommandCompleter::none(),
+        signature: Signature {
+            positionals: (0, Some(0)),
+            ..Signature::DEFAULT
+        },
+    },
+    TypableCommand {
+        name: "review-next",
+        aliases: &[],
+        doc: "Go to the next change in the current review.",
+        fun: crate::review::review_next,
+        completer: CommandCompleter::none(),
+        signature: Signature {
+            positionals: (0, Some(0)),
+            ..Signature::DEFAULT
+        },
+    },
+    TypableCommand {
+        name: "review-prev",
+        aliases: &[],
+        doc: "Go to the previous change in the current review.",
+        fun: crate::review::review_prev,
+        completer: CommandCompleter::none(),
+        signature: Signature {
+            positionals: (0, Some(0)),
+            ..Signature::DEFAULT
+        },
+    },
+    TypableCommand {
+        name: "review-line",
+        aliases: &[],
+        doc: "Open the GitHub diff at the line under the cursor: the pull request given as argument (remembered for the branch) or found with the `gh` CLI if installed, otherwise GitHub's compare view of the branch. Over SSH the link is copied to the clipboard instead.",
+        fun: crate::review::review_line,
+        completer: CommandCompleter::none(),
+        signature: Signature {
+            positionals: (0, Some(1)),
+            ..Signature::DEFAULT
+        },
+    },
+    TypableCommand {
+        name: "review-search",
+        aliases: &[],
+        doc: "Search the added and removed lines of all files in the review (starting a review against the default base if there is none). Optionally takes an initial query.",
+        fun: crate::review::review_search,
+        completer: CommandCompleter::none(),
+        signature: Signature {
+            positionals: (0, None),
+            ..Signature::DEFAULT
+        },
+    },
+    TypableCommand {
+        name: "review-mark",
+        aliases: &[],
+        doc: "Toggle whether the changes under the selections are reviewed.",
+        fun: crate::review::review_mark,
+        completer: CommandCompleter::none(),
+        signature: Signature {
+            positionals: (0, Some(0)),
+            ..Signature::DEFAULT
+        },
+    },
+    TypableCommand {
+        name: "review-mark-file",
+        aliases: &[],
+        doc: "Toggle whether all changes in the current file are reviewed.",
+        fun: crate::review::review_mark_file,
+        completer: CommandCompleter::none(),
+        signature: Signature {
+            positionals: (0, Some(0)),
+            ..Signature::DEFAULT
+        },
+    },
+    TypableCommand {
+        name: "review-close",
+        aliases: &[],
+        doc: "Leave review mode.",
+        fun: crate::review::review_close,
+        completer: CommandCompleter::none(),
+        signature: Signature {
+            positionals: (0, Some(0)),
+            ..Signature::DEFAULT
+        },
+    },
+    TypableCommand {
         name: "workspace-trust",
         aliases: &[],
         doc: "Allow language servers and local config for the current workspace.",

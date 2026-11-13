@@ -168,9 +168,35 @@ pub fn compare_ropes(before: &Rope, after: &Rope) -> Transaction {
     res
 }
 
+/// Compares `before` and `after` line by line and returns the changed hunks as
+/// `(before_lines, after_lines)` pairs of line ranges, in document order.
+///
+/// A hunk with an empty `before` range is a pure insertion and one with an
+/// empty `after` range is a pure removal (located just before line `after.start`).
+pub fn line_hunks(before: &Rope, after: &Rope) -> Vec<(Range<u32>, Range<u32>)> {
+    let file = InternedInput::new(RopeLines(before.slice(..)), RopeLines(after.slice(..)));
+    let mut diff = Diff::compute(Algorithm::Histogram, &file);
+    diff.postprocess_with_heuristic(
+        &file,
+        IndentHeuristic::new(|token| IndentLevel::for_ascii_line(file.interner[token].bytes(), 4)),
+    );
+    diff.hunks().map(|hunk| (hunk.before, hunk.after)).collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn line_hunks_basic() {
+        let before = Rope::from("a\nb\nc\nd\n");
+        let after = Rope::from("a\nB\nc\nd\ne\n");
+        assert_eq!(
+            line_hunks(&before, &after),
+            vec![(1..2, 1..2), (4..4, 4..5)]
+        );
+        assert!(line_hunks(&before, &before).is_empty());
+    }
 
     fn test_identity(a: &str, b: &str) {
         let mut old = Rope::from(a);

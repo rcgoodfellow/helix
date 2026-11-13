@@ -671,6 +671,7 @@ impl Default for StatusLineConfig {
                 E::FileName,
                 E::ReadOnlyIndicator,
                 E::FileModificationIndicator,
+                E::DecorationStatus,
             ],
             center: vec![],
             right: vec![
@@ -780,6 +781,10 @@ pub enum StatusLineElement {
 
     /// Indicator for when code actions are available
     CodeActionHint,
+
+    /// Status text supplied through document decorations (for example the
+    /// added/removed line counts of review mode)
+    DecorationStatus,
 }
 
 // Cursor shape is read and used on every rendered frame and so needs
@@ -885,6 +890,8 @@ pub enum GutterType {
     Diff,
     /// Indicator for when code actions are available
     CodeActionHint,
+    /// Markers supplied through document decorations (see `annotations::decorations`)
+    Marks,
 }
 
 impl std::str::FromStr for GutterType {
@@ -897,8 +904,9 @@ impl std::str::FromStr for GutterType {
             "line-numbers" => Ok(Self::LineNumbers),
             "diff" => Ok(Self::Diff),
             "code-action-hint" => Ok(Self::CodeActionHint),
+            "marks" => Ok(Self::Marks),
             _ => anyhow::bail!(
-                "Gutter type can only be `diagnostics`, `spacer`, `line-numbers` or `diff`."
+                "Gutter type can only be `diagnostics`, `spacer`, `line-numbers`, `diff`, `code-action-hint` or `marks`."
             ),
         }
     }
